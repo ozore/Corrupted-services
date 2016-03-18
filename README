@@ -1,0 +1,8 @@
+# Corrupted-services
+Management of services integrity on Linux
+
+
+Create a initial back up of services installed, 
+Check files integrity afterward
+Restore initial configuration
+Delete corrupted service
