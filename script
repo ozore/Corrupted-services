@@ -1,0 +1,100 @@
+#!/bin/bash 
+
+#Key generator for services
+function service {
+ls /etc/init.d > ~/integrity
+	for line in $(cat ~/integrity); do 
+		cd /etc/init.d/
+		sha512sum "$line" >> ~/keys_service
+	done  
+rm ~/integrity
+}
+
+#Key generator for binaries
+function binaire {
+ls /bin > ~/integrity2
+	for line in $(cat ~/integrity2); do 
+		cd /bin
+		sha512sum "$line" >> ~/keys_bin
+	done
+rm ~/integrity2
+}
+
+#archivage des fichiers
+function archivage {
+cd
+	mkdir -p ~/sauvegarde/services
+	mkdir -p ~/sauvegarde/binaires
+	cp -r /etc/init.d/ ~/sauvegarde/services
+	cp -r /bin ~/sauvegarde/binaires
+	tar -zcvf sauvegarde.tar.gz sauvegarde > /dev/null
+	rm -r ~/sauvegarde/
+	echo " --- Services sauvegardes, clefs generees --- "
+	echo "	 !! Modifier manullement code service  !!"
+}
+
+#tester altération des fichiers
+function testing {
+	mkdir ~/verif
+#service
+	ls /etc/init.d > ~/verif/listebin
+	for line in $(cat ~/verif/listebin); do 
+		cd /etc/init.d/
+		sha512sum "$line" >> ~/verif/keys_service2
+	done	
+	rm ~/verif/listebin
+#binaire
+	ls /bin > ~/verif/listeserv
+	for line in $(cat ~/verif/listeserv); do 
+		cd /bin
+		sha512sum "$line" >> ~/verif/keys_bin2
+	done
+	rm ~/verif/listeserv
+
+echo "Modifications found :"
+#verifier les modifications
+diff ~/keys_service ~/verif/keys_service2
+#diff ~/keys_bin ~/verif/keys_bin2
+
+}
+
+#Gestion après détection
+function manage {
+	echo "---- Managing services and/or binary coorupted files"
+	echo "Which service concerned? "
+	read corrupt
+	echo "1 : Restauration du fichier $corrupt"
+	echo "2 : update 'sauvegarde' tar file"
+	echo "3 : quarantaine"
+	echo " ? "
+	read choix
+	if [ "$choix" == "1" ]; then
+		echo "Restoring file ... "
+		cd
+		tar -xvf sauvegarde.tar.gz > /dev/null
+		cp sauvegarde/services/init.d/"$corrupt" /etc/init.d/"$corrupt"
+		rm -r ~/sauvegarde
+		echo "Service $corrupt restored into /etc/init.d with original file"
+	elif [ "$choix" == "2" ]; then
+		echo "Update archive file with $corrupt file"
+		tar -xvf sauvegarde.tar.gz
+		cp  /etc/init.d/"$corrupt" sauvegarde/services/init.d/ 
+		tar -zcvf sauvegarde.tar.gz sauvegarde	
+	fi
+}
+
+#RUN
+if [ "$1" == "-t" ]; then
+	testing
+	
+elif [ "$1" == "-s" ]; then
+	service
+	binaire
+	archivage
+elif [ "$1" == "-m" ]; then
+	manage
+else
+	echo ": Save initial configuration          -s"
+	echo ": Test corrupt services or binaries   -t"
+		echo ": Manage corrupted files              -m"
+fi
